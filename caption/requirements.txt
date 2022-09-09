@@ -1,0 +1,10 @@
+tensorflow
+nltk
+matplotlib
+pydot
+graphviz
+sklearn
+pandas
+PyDrive
+jupyter_console
+ipykernel
