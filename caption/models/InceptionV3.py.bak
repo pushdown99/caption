@@ -1,3 +1,6 @@
+import tensorflow as tf
+import numpy as np
+
 from os import path
 from os import makedirs
 from os import listdir
@@ -10,21 +13,26 @@ from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications.vgg16 import preprocess_input
 from tensorflow.keras.models import Model
 
-class cnn:
-  def __init__(self, dir = "datasets/Flickr8k/Flicker8k_Dataset", verbose = True):
-    if not path.exists(dir):
-      raise FileNotFoundError("Dataset directory does not exist: %s" % dir)
+class CNN:
+  def __init__(self, option, verbose = True):
+    #if not path.exists(dir):
+    #  raise FileNotFoundError("Dataset directory does not exist: %s" % dir)
 
-    self.dir     = dir
-    self.out     = 'files/inceptionv3'
+    self.option  = option
     self.verbose = verbose
 
-    if not path.exists(self.out):
-      makedirs(self.out, exist_ok=True)
+    for dir in option['dirs']:
+      print (dir)
+    #if not path.exists(self.out):
+    #  makedirs(self.out, exist_ok=True)
+
+    #if not path.exists(self.feature):
+    #  makedirs(self.feature, exist_ok=True)
 
     model = InceptionV3(include_top=False, weights='imagenet')
     model = Model(inputs=model.inputs, outputs=model.layers[-1].output)
 
+"""
     if self.verbose:
       #print(model.summary())
       print(self.get_model_summary(model))
@@ -50,3 +58,22 @@ class cnn:
     string_list = []
     model.summary(line_length=160, print_fn=lambda x: string_list.append(x))
     return "\n".join(string_list)
+
+
+#  def load_image(self, image_path):
+#    full_path = path.join(self.dir, image_path + '.jpg')
+#    img = tf.io.read_file(full_path)
+#    img = tf.image.decode_jpeg(img, channels=3)
+#    img = tf.image.resize(img, (224, 224))
+#    img = tf.keras.applications.vgg16.preprocess_input(img)
+#    return img, image_path
+
+  def image_model(self):
+    cnn_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
+    new_input = cnn_model.input
+    hidden_layer = cnn_model.layers[-1].output
+
+    model = tf.keras.Model(new_input, hidden_layer)
+    model.summary()
+    return model
+"""

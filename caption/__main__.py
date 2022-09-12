@@ -15,18 +15,15 @@
 # -
 #
 
-import os
 import platform
-import argparse
+from .config import Config, Flickr8kOpts, InceptionV3Opts
 
-from .models  import flickr8k
-from .models  import vgg16
-from .models  import inceptionv3
-from .models  import efficientnetb0
-
-os.environ['TF_CPP_MIN_LOG_LEVEL']  = '2'
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+from .models    import Flickr8k
+from .models    import InceptionV3
+from .models    import Encoder
+from .models    import Decoder
+from .models    import BahdanauAttention
+from . import utils
 
 print('')
 print('________                               _______________')
@@ -44,12 +41,8 @@ logging.getLogger('tensorflow').disabled = True
 import tensorflow as tf
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser("ImageCaption")
-
-  # Run-time environment
-  cuda_available = tf.test.is_built_with_cuda()
-  #gpu_available = tf.test.is_gpu_available(cuda_only = False, min_cuda_compute_capability = None)
-  gpu_available = len(tf.config.list_physical_devices('GPU'))
+  cuda_available 	= tf.test.is_built_with_cuda()
+  gpu_available 	= len(tf.config.list_physical_devices('GPU'))
 
   print("Version        : %s" % (platform.version()))
   print("Python         : %s" % (platform.python_version()))
@@ -58,7 +51,25 @@ if __name__ == "__main__":
   print("GPU Available  : %s" % ("yes" if gpu_available else "no"))
   print("Eager Execution: %s" % ("yes" if tf.executing_eagerly() else "no"))
 
-model   = inceptionv3.cnn()
-dataset = flickr8k.dataset()
-dataset.load_descriptions('Flickr8k.token.txt', 'descriptions.txt')
+#if utils.is_notebook():
+#  import matplotlib.pyplot as plt
+#else:
+#  import plotext as plt
+#
+#plt.plot([1, 2, 3, 4], [1, 4, 9, 16])
+#plt.plotsize(100, 30)
+#plt.show()
+
+dataset = Flickr8k.Dataset(Flickr8kOpts, True)
+data  = dataset.LoadData ()
+
+encoder   = Encoder.CNN(Config)
+attention = BahdanauAttention.Attention(Config)
+decoder   = Decoder.RNN(Config, data, attention)
+
+model = InceptionV3.CNN(Config, InceptionV3Opts, data, decoder, encoder)
+model.LoadData (data)
+model.Fit ()
+model.Evaluate ()
+model.Generate (10)
 

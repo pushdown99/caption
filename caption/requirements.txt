@@ -6,5 +6,8 @@ graphviz
 sklearn
 pandas
 PyDrive
+climage
+plotext
+termplotlib
 jupyter_console
 ipykernel
