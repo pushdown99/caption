@@ -5,28 +5,115 @@ import time
 from os import path
 from os import makedirs
 from tqdm import tqdm
+from pickle import load, dump
 from tensorflow.keras.applications import InceptionV3
 from tensorflow.keras.models import Model
 from nltk.translate.bleu_score import corpus_bleu, sentence_bleu, SmoothingFunction
 from PIL import Image
 from IPython.display import display
 
-#from ..config import Config, Flickr8kOpts, InceptionV3Opts
-
-from .Encoder import *
-from .Decoder import *
 from ..       import utils
 
-class CNN (tf.keras.Model):
-  def __init__(self, config, option, data, decoder, encoder, verbose = True):
+class BahdanauAttention (tf.keras.Model):
+  def __init__(self, units):
     super().__init__()
 
-    self.config  = config
-    self.option  = option
-    self.data    = data
-    self.decoder = decoder
-    self.encoder = encoder
+    self.units  = units
+    self.W1     = tf.keras.layers.Dense(units)
+    self.W2     = tf.keras.layers.Dense(units)
+    self.V      = tf.keras.layers.Dense(1)
+
+  def call(self, features, hidden):
+    hidden_with_time_axis = tf.expand_dims(hidden, 1)
+
+    attention_hidden_layer = (tf.nn.tanh(self.W1(features) + self.W2(hidden_with_time_axis)))
+
+    score = self.V(attention_hidden_layer)
+
+    attention_weights = tf.nn.softmax(score, axis=1)
+
+    context_vector = attention_weights * features
+    context_vector = tf.reduce_sum(context_vector, axis=1)
+
+    return context_vector, attention_weights
+
+class Encoder(tf.keras.Model):
+  def __init__(self, embedding_dim, verbose = True):
+    super(Encoder, self).__init__()
+
     self.verbose = verbose
+    self.fc = tf.keras.layers.Dense(embedding_dim)
+
+  def call(self, x):
+    x = self.fc(x)
+    x = tf.nn.relu(x)
+    return x
+
+class Decoder(tf.keras.Model):
+  def __init__(self, embedding_dim, units, vocab_size, verbose = True):
+    super(Decoder, self).__init__()
+
+    self.verbose       = verbose
+    self.units         = units
+    self.vocab_size    = vocab_size
+    self.embedding     = tf.keras.layers.Embedding(vocab_size, embedding_dim)
+    self.lstm          = tf.keras.layers.LSTM(self.units, return_sequences=True, return_state=True, recurrent_initializer='glorot_uniform')
+    self.fc1           = tf.keras.layers.Dense(self.units)
+
+    self.dropout = tf.keras.layers.Dropout(0.5, noise_shape=None, seed=None)
+    self.batchnormalization = tf.keras.layers.BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001, center=True, scale=True,
+                               beta_initializer='zeros', gamma_initializer='ones', moving_mean_initializer='zeros', moving_variance_initializer='ones',
+                               beta_regularizer=None, gamma_regularizer=None, beta_constraint=None, gamma_constraint=None)
+
+
+    self.fc2       = tf.keras.layers.Dense(self.vocab_size)
+    self.attention = BahdanauAttention(self.units)
+
+  def call(self, x, features, hidden):
+    context_vector, attention_weights = self.attention(features, hidden)
+
+    x = self.embedding(x)
+    x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+
+    output, mem_state, carry_state = self.lstm(x)
+
+    x = self.fc1(output)
+    x = tf.reshape(x, (-1, x.shape[2]))
+    x = self.dropout(x)
+    x = self.batchnormalization(x)
+    x = self.fc2(x)
+
+    return x, mem_state, attention_weights
+
+  def reset_state(self, batch_size):
+    return tf.zeros((batch_size, self.units))
+
+
+class CNN (tf.keras.Model):
+  def __init__(self, config, option, data, verbose = True):
+    super().__init__()
+
+    print (config)
+    self.config    = config
+    self.option    = option
+    self.data      = data
+
+    self.embedding_dim = config['embedding_dim']
+    self.units         = config['units']
+    self.vocab_size    = data['vocab_size']
+    self.tokenizer     = load(open(option['tokenizer'], 'rb'))
+
+    print (self.embedding_dim, self.units, self.vocab_size)
+
+    self.decoder   = Decoder(self.embedding_dim, self.units, self.vocab_size)
+    self.encoder   = Encoder(self.embedding_dim)
+
+    print ('decoder:', type(self.decoder))
+    print ('encoder:', type(self.encoder))
+
+    print (self.is_keras_or_tf_model(self.decoder))
+
+    self.verbose   = verbose
 
     for dir in option['dirs']:
       if not path.exists(dir):
@@ -38,7 +125,11 @@ class CNN (tf.keras.Model):
     #if self.verbose:
     #    print (model.summary())
 
+    self.load_data ()
     self.model = model;
+
+  def is_keras_or_tf_model(self, obj):
+    return isinstance(obj, (tf.keras.Model, tf.estimator.Estimator))
 
   def load_image(self, image_path):
     full_path = self.option['images_dir'] +'/' + image_path + '.jpg'
@@ -75,7 +166,7 @@ class CNN (tf.keras.Model):
   @tf.function
   def train_step(self, img_tensor, target):
     loss = 0
-    tokenizer = self.data['tokenizer']
+    tokenizer = self.tokenizer
     hidden = self.decoder.reset_state(batch_size=target.shape[0])
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
 
@@ -96,7 +187,7 @@ class CNN (tf.keras.Model):
   @tf.function 
   def val_step(self, img_tensor, target):
     loss = 0
-    tokenizer = self.data['tokenizer']
+    tokenizer = self.tokenizer
     hidden     = self.decoder.reset_state(batch_size=target.shape[0])
     dec_input = tf.expand_dims([tokenizer.word_index['<start>']] * target.shape[0], 1)
     features   = self.encoder(img_tensor)
@@ -109,26 +200,25 @@ class CNN (tf.keras.Model):
     avg_loss = (loss / int(target.shape[1]))
     return loss, avg_loss
 
-  def LoadData (self, data):
-    img_name_vector = data['dataset_train'] | data['dataset_valid'] | data['dataset_test']
+  def load_data (self):
+    img_name_vector = self.data['dataset_train'] | self.data['dataset_valid'] | self.data['dataset_test']
     encode_images = sorted(set(img_name_vector))
     image_dataset = tf.data.Dataset.from_tensor_slices(encode_images)
     image_dataset = image_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE).batch(64)
 
-    for img, path in tqdm(image_dataset, position=0, leave=True):
-      batch_features = self.model(img)
-      batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
-
-      for bf, p in zip(batch_features, path):
-        path_of_feature = self.option['features'] + '/' + p.numpy().decode("utf-8") + '.jpg'
-        np.save(path_of_feature, bf.numpy())
+#    for img, path in tqdm(image_dataset, position=0, leave=True):
+#      batch_features = self.model(img)
+#      batch_features = tf.reshape(batch_features, (batch_features.shape[0], -1, batch_features.shape[3]))
+#
+#      for bf, p in zip(batch_features, path):
+#        path_of_feature = self.option['features'] + '/' + p.numpy().decode("utf-8") + '.jpg'
+#        np.save(path_of_feature, bf.numpy())
 
   def Fit (self):
-    train_dataset = self.create_dataset(self.data['img_name_train'], self.data['caption_train'])
-    valid_dataset = self.create_dataset(self.data['img_name_valid'], self.data['caption_valid'])
-
-    self.optimizer = tf.keras.optimizers.Adam()
-    self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+    train_dataset       = self.create_dataset(self.data['img_name_train'], self.data['caption_train'])
+    valid_dataset       = self.create_dataset(self.data['img_name_valid'], self.data['caption_valid'])
+    self.optimizer      = tf.keras.optimizers.Adam()
+    self.loss_object    = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
     loss_plot     = []
     val_loss_plot = []
@@ -193,16 +283,16 @@ class CNN (tf.keras.Model):
     img_tensor_val  = tf.reshape(img_tensor_val, (img_tensor_val.shape[0], -1, img_tensor_val.shape[3]))
 
     features  = self.encoder(img_tensor_val)
-    dec_input = tf.expand_dims([self.data['tokenizer'].word_index['<start>']], 0)
+    dec_input = tf.expand_dims([self.tokenizer.word_index['<start>']], 0)
     result = ['<start>']
 
     for i in range(self.data['max_length']):
         predictions, hidden, attention_weights = self.decoder(dec_input, features, hidden)
         attention_plot[i] = tf.reshape(attention_weights, (-1, )).numpy()
         predicted_id = tf.random.categorical(predictions, 1)[0][0].numpy()
-        result.append(self.data['tokenizer'].index_word[predicted_id])
+        result.append(self.tokenizer.index_word[predicted_id])
 
-        if self.data['tokenizer'].index_word[predicted_id] == '<end>':
+        if self.tokenizer.index_word[predicted_id] == '<end>':
             break
 
         dec_input = tf.expand_dims([predicted_id], 0)
@@ -233,9 +323,11 @@ class CNN (tf.keras.Model):
     self.calculate_scores(actual, predicted)
 
 
-  def LoadWeight (self, option, encoder, decoder):
-    encoder.load_wieghts (option['encoder_model'])
-    decoder.load_wieghts (option['decoder_model'])
+  def load_dec_enc_weight (self):
+    self.encoder.built = True
+    self.decoder.build = True
+    self.encoder.load_weights (self.option['encoder_model'])
+    self.decoder.load_weights (self.option['decoder_model'])
 
   def Evaluate (self):
     self.evaluate_model ()
@@ -276,23 +368,24 @@ class CNN (tf.keras.Model):
 
   def generate_captions(self, count):
     c = 0
-    for key, desc_list in test_descriptions.items():
-      filename = 'Flickr8k_Dataset/' + key + '.jpg'
+    for key, desc_list in self.data['test_descriptions'].items():
+      filename = self.option['images_dir'] + '/' + key + '.jpg'
       display(Image.open(filename))
       for i, desc in enumerate(desc_list):
-        print('Original ' + str(i+1) + ': ' + clean_caption(desc_list[i]))
-      desc, attention_plot = generate_desc(key)
+        print('Original ' + str(i+1) + ': ' + self.clean_caption(desc_list[i]))
+      desc, attention_plot = self.generate_desc(key)
       references = [d.split() for d in desc_list]
       smooth = SmoothingFunction().method4
       desc_bleu = sentence_bleu(references, desc.split(), weights=(1.0, 0, 0, 0), smoothing_function=smooth)*100
-      captions = clean_caption(desc)
+      captions = self.clean_caption(desc)
       print('Sampling (BLEU-1: %f): %s' % (desc_bleu, captions))
       if ((desc_bleu > 20.0) and captions != None and (len(captions.split(' ')) > 2)):
         if utils.is_notebook():
-        	plot_attention(filename, desc.split(), attention_plot)
+        	self.plot_attention(filename, desc.split(), attention_plot)
       c += 1
       if c == count:
         break
 
   def Generate (self, count):
-    generate_captions (count)
+    self.load_dec_enc_weight ()
+    self.generate_captions (count)

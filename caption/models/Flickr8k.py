@@ -6,7 +6,6 @@ from os import path
 from os import makedirs
 from os import listdir
 from numpy import array
-from pickle import load, dump
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
@@ -182,7 +181,6 @@ class Dataset:
       'test_descriptions':  self.test_descriptions,
       'vocab_size':         self.vocab_size,
       'max_length':         self.max_length,
-      'tokenizer':          self.tokenizer,
     }
     return Data
 
@@ -240,6 +238,5 @@ class Dataset:
 
     self.vocab_size = vocab_size
     self.max_length = max_length
-    self.tokenizer  = tokenizer
 
     return self.GetData()

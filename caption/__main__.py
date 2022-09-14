@@ -63,13 +63,8 @@ if __name__ == "__main__":
 dataset = Flickr8k.Dataset(Flickr8kOpts, True)
 data  = dataset.LoadData ()
 
-encoder   = Encoder.CNN(Config)
-attention = BahdanauAttention.Attention(Config)
-decoder   = Decoder.RNN(Config, data, attention)
-
-model = InceptionV3.CNN(Config, InceptionV3Opts, data, decoder, encoder)
-model.LoadData (data)
-model.Fit ()
+model = InceptionV3.CNN(Config, InceptionV3Opts, data)
+#model.Fit ()
 model.Evaluate ()
 model.Generate (10)
 

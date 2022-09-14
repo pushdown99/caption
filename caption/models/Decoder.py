@@ -2,7 +2,7 @@ import tensorflow as tf
 
 class RNN(tf.keras.Model):
   def __init__(self, config, params, attention, verbose = True):
-    super().__init__()
+    super(RNN, self).__init__()
 
     self.config  = config
     self.params  = params

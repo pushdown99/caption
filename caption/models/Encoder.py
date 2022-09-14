@@ -2,7 +2,7 @@ import tensorflow as tf
 
 class CNN(tf.keras.Model):
   def __init__(self, config, verbose = True):
-    super().__init__()
+    super(CNN, self).__init__()
 
     self.config  = config
     self.verbose = verbose

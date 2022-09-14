@@ -5,7 +5,7 @@ Config = {
   'buffer_size':              1000,
   'features_shape':           512,
   'attention_features_shape': 25,
-  'epochs':                   1,
+  'epochs':                   20,
 }
 
 Flickr8kOpts = {
@@ -28,6 +28,7 @@ InceptionV3Opts = {
   'dirs':             ['files/inceptionv3/features'],
   'images_dir':       'datasets/Flickr8k/Flicker8k_Dataset',
   'features':         'files/inceptionv3/features',
+  'tokenizer':        'files/Flickr8k/tokenizer.pkl',
   'encoder_model':    'files/inceptionv3/encoder.h5',
   'decoder_model':    'files/inceptionv3/decoder.h5',
 }
