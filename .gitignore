@@ -9,6 +9,8 @@ __pycache__/
 *.h5
 *.pkl
 
+Image-Captioning/
+
 # Distribution / packaging
 .Python
 build/

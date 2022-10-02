@@ -1,35 +1,42 @@
-Config = {
+config = {
   'embedding_dim':            256,
-  'units':                    2,
-  'batch_size':               64,
-  'buffer_size':              1000,
-  'features_shape':           512,
-  'attention_features_shape': 25,
-  'epochs':                   20,
+  'units':                    256,
+  'num_of_epochs':            50,
+  'batch_size':               32,
 }
 
-Flickr8kOpts = {
-  'datset_name':        'Flickr8k',
-  'dirs':               ['files/Flickr8k'],
-  'dataset_dir':        'datasets/Flickr8k/',
+flickr8k_opts = {
+  'dataset_name':       'flickr8k',
+  'dirs':              ['files', 'models'],
   'images_dir':         'datasets/Flickr8k/Flicker8k_Dataset',
   'images_mapping':     'datasets/Flickr8k/Flickr8k.token.txt',
   'images_train':       'datasets/Flickr8k/Flickr_8k.trainImages.txt',
   'images_valid':       'datasets/Flickr8k/Flickr_8k.devImages.txt',
   'images_test':        'datasets/Flickr8k/Flickr_8k.testImages.txt',
-  'desciption_mapping': 'files/Flickr8k/descriptions_mapping.txt',
-  'tokenizer':          'files/Flickr8k/tokenizer.pkl',
+  'limits_train':       0,
+  'limits_valid':       0,
+  'limits_test':        10,
   'example_image':      'datasets/Flickr8k/Flicker8k_Dataset/667626_18933d713e.jpg',
   'example_id':         '667626_18933d713e',
 }
 
-InceptionV3Opts = {
-  'model_name':       'InceptionV3',
-  'dirs':             ['files/inceptionv3/features'],
-  'images_dir':       'datasets/Flickr8k/Flicker8k_Dataset',
-  'features':         'files/inceptionv3/features',
-  'tokenizer':        'files/Flickr8k/tokenizer.pkl',
-  'encoder_model':    'files/inceptionv3/encoder.h5',
-  'decoder_model':    'files/inceptionv3/decoder.h5',
+vgg16_opts = {
+  'model_name':       'vgg16',
+  'dirs':            ['files', 'models'],
+  'image_size':       224,
+  'input_size':       4096,
 }
 
+inceptionv3_opts = {
+  'model_name':       'inceptionv3',
+  'dirs':            ['files', 'models'],
+  'image_size':       299,
+  'input_size':       2048,
+}
+
+efficientnet_opt = {
+  'model_name':       'efficientnet',
+  'dirs':            ['files', 'models'],
+  'image_size':       224,
+  'input_size':       1000,
+}

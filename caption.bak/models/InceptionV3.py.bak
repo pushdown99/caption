@@ -1,0 +1,79 @@
+import tensorflow as tf
+import numpy as np
+
+from os import path
+from os import makedirs
+from os import listdir
+from os.path import isfile
+from pickle import dump
+from tensorflow.keras import layers
+from tensorflow.keras.applications import InceptionV3
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.applications.vgg16 import preprocess_input
+from tensorflow.keras.models import Model
+
+class CNN:
+  def __init__(self, option, verbose = True):
+    #if not path.exists(dir):
+    #  raise FileNotFoundError("Dataset directory does not exist: %s" % dir)
+
+    self.option  = option
+    self.verbose = verbose
+
+    for dir in option['dirs']:
+      print (dir)
+    #if not path.exists(self.out):
+    #  makedirs(self.out, exist_ok=True)
+
+    #if not path.exists(self.feature):
+    #  makedirs(self.feature, exist_ok=True)
+
+    model = InceptionV3(include_top=False, weights='imagenet')
+    model = Model(inputs=model.inputs, outputs=model.layers[-1].output)
+
+"""
+    if self.verbose:
+      #print(model.summary())
+      print(self.get_model_summary(model))
+
+    if not isfile(path.join(self.out, 'features.pkl')):
+      features = dict()
+      for name in listdir(dir):
+        filename = dir + '/' + name
+        image = load_img(filename, target_size=(224, 224))
+        image = img_to_array(image)
+        image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
+        image = preprocess_input(image)
+        feature = model.predict(image, verbose=0)
+        image_id = name.split('.')[0]
+        features[image_id] = feature
+
+      if self.verbose:
+        print('Extracted Features: %d' % len(features))
+
+      dump(features, open(path.join(self.out, 'features.pkl'), 'wb'))
+
+  def get_model_summary(self, model: Model) -> str:
+    string_list = []
+    model.summary(line_length=160, print_fn=lambda x: string_list.append(x))
+    return "\n".join(string_list)
+
+
+#  def load_image(self, image_path):
+#    full_path = path.join(self.dir, image_path + '.jpg')
+#    img = tf.io.read_file(full_path)
+#    img = tf.image.decode_jpeg(img, channels=3)
+#    img = tf.image.resize(img, (224, 224))
+#    img = tf.keras.applications.vgg16.preprocess_input(img)
+#    return img, image_path
+
+  def image_model(self):
+    cnn_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
+    new_input = cnn_model.input
+    hidden_layer = cnn_model.layers[-1].output
+
+    model = tf.keras.Model(new_input, hidden_layer)
+    model.summary()
+    return model
+"""
