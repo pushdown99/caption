@@ -1,9 +1,14 @@
 import tensorflow as tf
 import climage
-from keras.utils import plot_model
+
+from os import listdir
+from tqdm import tqdm
+from keras.utils import plot_model, load_img, img_to_array
+from keras.applications.vgg16 import preprocess_input
 from IPython.display import Image, display
 
-from .models import Flickr8k
+#from .models import flickr8k, coco2014
+from .models import flickr8k, coco2014
 
 def is_notebook() -> bool:
   try:
@@ -44,10 +49,21 @@ def plot(model, filename):
   plot_model(model, to_file=filename, show_shapes=True, show_layer_names=False)
   display(Image(filename))
 
-def get_dataset(data_opt, model_opt, verbose):
-  dataset = Flickr8k.Dataset(data_opt, model_opt, verbose)
-  data    = dataset.LoadData ()
-  return data
+def plot_attention(image, result, attention_plot):
+  temp_image = np.array(Image.open(image))
+
+  fig = plt.figure(figsize=(10, 10))
+
+  len_result = len(result)
+  for l in range(len_result):
+    temp_att = np.resize(attention_plot[l], (8, 8))
+    ax = fig.add_subplot(len_result//2, len_result//2, l+1)
+    ax.set_title(result[l])
+    img = ax.imshow(temp_image)
+    ax.imshow(temp_att, cmap='gray', alpha=0.6, extent=img.get_extent())
+
+  plt.tight_layout()
+  plt.show()
 
 def usage():
   import platform
